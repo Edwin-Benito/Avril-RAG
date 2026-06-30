@@ -1,11 +1,4 @@
-"""
-supabase_client.py — INF-RAG-001
-Inserta ideas validadas en Supabase.
 
-Prioridad de conexión:
-1. `SUPABASE_CONN` para PostgreSQL directo.
-2. `SUPABASE_URL` + `SUPABASE_KEY` como respaldo con el SDK.
-"""
 
 import json
 import os
