@@ -1,0 +1,24 @@
+2026-07-01 20:54:23,690 - __main__ - INFO - Detectados 4 spiders: techcrunch, producthunt, hackernews, generic
+2026-07-01 20:54:23,690 - __main__ - INFO - [FASE 1] Ejecutando todos los scrapers...
+2026-07-01 20:54:27,705 - __main__ - INFO -   [OK] Spider 'techcrunch' terminó.
+2026-07-01 20:54:28,961 - __main__ - INFO -   [OK] Spider 'producthunt' terminó.
+2026-07-01 20:54:35,864 - __main__ - INFO -   [OK] Spider 'hackernews' terminó.
+2026-07-01 21:07:25,694 - __main__ - INFO - Detectados 4 spiders: techcrunch, producthunt, hackernews, generic
+2026-07-01 21:07:25,694 - __main__ - INFO - [FASE 1] Ejecutando todos los scrapers...
+2026-07-01 21:07:29,492 - __main__ - INFO -   [OK] Spider 'techcrunch' terminó.
+2026-07-01 21:07:30,846 - __main__ - INFO -   [OK] Spider 'producthunt' terminó.
+2026-07-01 21:07:37,900 - __main__ - INFO -   [OK] Spider 'hackernews' terminó.
+2026-07-01 21:30:32,214 - __main__ - INFO -   [OK] Spider 'generic' terminó.
+2026-07-01 21:30:32,217 - __main__ - INFO - [FASE 2/3] Destilando...
+2026-07-01 21:30:59,475 - httpx - INFO - HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-01 21:30:59,481 - __main__ - INFO -     [OK] Destilada: Gemini Spark para Mac
+2026-07-01 21:31:26,712 - httpx - INFO - HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-01 21:31:26,713 - __main__ - INFO -     [OK] Destilada: Claude Sonnet 5
+2026-07-01 21:32:29,688 - httpx - INFO - HTTP Request: POST https://integrate.api.nvidia.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-01 21:32:29,692 - __main__ - INFO -     [OK] Destilada: Acti Keyboard AI
+2026-07-01 21:32:31,193 - __main__ - INFO - [ARCHIVO] Borrador guardado en: /home/benito/Documentos/Proyecto RAG/rag_avril/ideas_borrador.json
+2026-07-01 21:32:31,193 - __main__ - INFO - [FASE 4] Insertando en Supabase...
+2026-07-01 21:32:32,965 - __main__ - INFO -     [DEDUP] Gemini Spark para Mac
+2026-07-01 21:32:34,705 - __main__ - INFO -     [DEDUP] Claude Sonnet 5
+2026-07-01 21:32:36,138 - __main__ - INFO -     [DEDUP] Acti Keyboard AI
+2026-07-01 21:32:36,138 - __main__ - INFO - Pipeline completado.

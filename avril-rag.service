@@ -1,17 +1,31 @@
 [Unit]
-Description=Pipeline Avril RAG (Scraping y Destilacion)
+Description=Avril RAG - Automated News Pipeline for Agentic Business Ideas
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+User=backend
+Group=backend
+WorkingDirectory=/srv/avril
+ExecStart=/usr/bin/python3 /srv/avril/main.py
 
-# CAmbiar rutas por las reales del VPS
-User=usuario_del_servidor
-WorkingDirectory=/ruta/absoluta/a/Avril-RAG
-
-# Es vital usar el python del entorno virtual (.venv) para que detecte las dependencias
-ExecStart=/ruta/absoluta/a/Avril-RAG/.venv/bin/python main.py
-
-# Redirigir salidas a systemd journal
+# Logging
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=avril-rag
+SyslogFacility=local7
+
+# Seguridad
+NoNewPrivileges=true
+ProtectHome=yes
+ProtectSystem=strict
+
+# Timeouts (30 min para el pipeline)
+TimeoutStartSec=30m
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
+
+

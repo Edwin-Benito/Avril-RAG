@@ -11,8 +11,24 @@ from distilador import destilar, validar, tiene_contenido_util
 from supabase_client import insertar_idea, contar_ideas
 
 # Configuración de logs
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # stdout → journalctl en systemd
+        logging.FileHandler('avril-rag.log')  # También guardar localmente
+    ]
+)
 logger = logging.getLogger(__name__)
+
+# Integrar journalctl si está disponible (producción)
+try:
+    from systemd.journal import JournalHandler
+    journal_handler = JournalHandler()
+    journal_handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
+    logger.addHandler(journal_handler)
+except ImportError:
+    logger.debug("systemd.journal no disponible (OK si es desarrollo local)")
 
 # Ruta absoluta a la raíz del proyecto
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))

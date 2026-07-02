@@ -25,9 +25,33 @@ Documentación técnica completa: [DOCUMENTACION_DEL_PROYECTO.md](DOCUMENTACION_
 
 ## Fuentes actuales
 
-- Hacker News mediante Algolia Search.
-- TechCrunch AI RSS.
-- Spider genérico para URLs individuales o un banco JSON de URLs.
+### Spiders especializados (3):
+
+1. **Hacker News** - API Algolia Search, filtrado por keywords (agentic, ai agent, autonomous agent, etc.)
+2. **TechCrunch AI** - RSS feed oficial de TechCrunch categoria AI
+3. **Product Hunt** - API GraphQL oficial, lanzamientos recientes
+
+### Spider genérico con link discovery (24 URLs):
+
+4. **Blogs de VCs y empresas:**
+   - a16z Blog, Sequoia Capital, Bessemer Venture Partners, NFX, Conviction, Lightspeed Venture Partners
+   - OpenAI Blog, Anthropic News, Google AI Blog, Google Research
+
+5. **Blogs de frameworks AI:**
+   - CrewAI Blog, LangChain Blog, LlamaIndex Blog, AutoGen
+
+6. **Plataformas de desarrollo:**
+   - GitHub Trending, Y Combinator Companies, Hugging Face (Spaces + Models)
+   - Replit Blog, Cursor Blog, Devin/OpenHands, Cognition AI
+
+El spider genérico descubre automáticamente artículos dentro de cada sitio:
+
+- Busca enlaces a artículos (/blog/, /news/, /post/, 202x)
+- Filtra basura (terms, privacy, team, portfolio)
+- Extrae solo links internos del dominio
+- Valida que el contenido tenga keywords (ai, agent, llm, autonomous, startup)
+
+**Total:** 27 URLs configuradas en `urls_fuentes.json`, 4 spiders independientes
 
 ## Requisitos
 
@@ -107,3 +131,52 @@ python3 main.py --solo-destilar
 - El banco de ideas en Supabase guarda las ideas en estado `borrador` por defecto.
 - La revisión humana puede mover una idea a `revisada` o `publicada`.
 - El botón "Voy a tener suerte" debe consumir solo ideas publicadas.
+
+## Ejecución automática (systemd)
+
+En producción, el pipeline se ejecuta automáticamente:
+
+**Timing:** Cada viernes a las 12:00 PM (UTC)  
+**Mecanismo:** systemd timer + service  
+**Recuperación:** Si el servidor estaba apagado a esa hora, se ejecuta después de reiniciar (Persistent=true)  
+**Logs:** `sudo journalctl -u avril-rag.service -f`
+
+### Instalación en VPS
+
+Copiar archivos:
+
+```bash
+sudo cp avril-rag.service avril-rag.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable avril-rag.timer
+sudo systemctl start avril-rag.timer
+```
+
+Verificar:
+
+```bash
+sudo systemctl list-timers avril-rag.timer
+sudo journalctl -u avril-rag.service -n 50
+```
+
+### Ejecutar manualmente (desarrollo)
+
+```bash
+# Pipeline completa
+python3 main.py
+
+# Con límite de noticias (testing)
+python3 main.py --limite 5
+
+# Solo Hacker News
+scrapy crawl hackernews
+
+# Solo TechCrunch
+scrapy crawl techcrunch
+
+# Solo Product Hunt
+scrapy crawl producthunt
+
+# Generic spider con todas las 27 URLs
+scrapy crawl generic -a urls_file=urls_fuentes.json
+```
