@@ -1,0 +1,17 @@
+[Unit]
+Description=Pipeline Avril RAG (Scraping y Destilacion)
+After=network-online.target
+
+[Service]
+Type=oneshot
+
+# CAmbiar rutas por las reales del VPS
+User=usuario_del_servidor
+WorkingDirectory=/ruta/absoluta/a/Avril-RAG
+
+# Es vital usar el python del entorno virtual (.venv) para que detecte las dependencias
+ExecStart=/ruta/absoluta/a/Avril-RAG/.venv/bin/python main.py
+
+# Redirigir salidas a systemd journal
+StandardOutput=journal
+StandardError=journal

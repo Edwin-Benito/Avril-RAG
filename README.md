@@ -2,6 +2,8 @@
 
 Pipeline RAG para detectar noticias y señales sobre negocios agénticos, convertirlas en ideas estructuradas y guardarlas en Supabase para revisión humana.
 
+Documentación técnica completa: [DOCUMENTACION_DEL_PROYECTO.md](DOCUMENTACION_DEL_PROYECTO.md)
+
 ## Qué hace
 
 - Recolecta noticias desde fuentes externas con Scrapy.

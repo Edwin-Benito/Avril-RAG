@@ -17,7 +17,7 @@ class Subagente(BaseModel):
     id: str
     nombre: str
     rol: str
-    modelo_llm: Optional[str] = None
+    modelo_llm: Optional[str] = Field(default="auto", description="Usa 'auto' para que el sistema elija el modelo más conveniente.")
     prompt_sistema: Optional[str] = None
     skills: list[Skill] = Field(min_length=1)
 

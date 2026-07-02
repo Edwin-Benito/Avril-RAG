@@ -8,6 +8,10 @@ load_dotenv()
 CONNECTION_STRING = os.getenv("SUPABASE_CONN")
 
 SQL_CREAR_TABLA = """
+-- 1. Habilitar la extensión para guardar embeddings
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 2. Crear la tabla
 CREATE TABLE IF NOT EXISTS ideas_negocio (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre        TEXT NOT NULL,
@@ -19,6 +23,7 @@ CREATE TABLE IF NOT EXISTS ideas_negocio (
     status        TEXT NOT NULL DEFAULT 'borrador'
                   CHECK (status IN ('borrador', 'revisada', 'publicada')),
     quality_score FLOAT,
+    embedding     vector(1536), -- Columna lista para cuando se conecte el modelo
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );

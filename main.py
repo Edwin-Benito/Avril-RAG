@@ -1,191 +1,91 @@
-"""
-
-Uso:
-    python main.py                  # pipeline completo
-    python main.py --solo-destilar  # salta el scraping, usa noticias.json existente
-    python main.py --limite 5       # limita noticias a procesar
-    python main.py --fuente techcrunch
-    python main.py --fuente generic --urls-file urls_fuentes.json
-"""
-
 import json
 import argparse
 import subprocess
 import os
 import tempfile
 import time
+import logging
+import glob
 
 from distilador import destilar, validar, tiene_contenido_util
 from supabase_client import insertar_idea, contar_ideas
 
+# Configuración de logs
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
-def correr_scraper(fuentes=None, urls_file=None):
-    """Ejecuta uno o varios spiders y genera noticias.json combinado."""
-    print("\n[FASE 1] Scraping de fuentes...")
-    spider_dir = os.path.join(os.path.dirname(__file__), "rag_scraper")
-    fuentes = fuentes or ["hackernews"]
-    noticias = []
-    urls_file_absoluto = os.path.abspath(urls_file) if urls_file else None
+# Ruta absoluta a la raíz del proyecto
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def obtener_todos_los_spiders():
+    spider_dir = os.path.join(ROOT_DIR, "rag_scraper", "rag_scraper", "spiders")
+    archivos = glob.glob(os.path.join(spider_dir, "*_spider.py"))
+    return [os.path.basename(f).replace("_spider.py", "") for f in archivos]
+
+def ejecutar_pipeline_completo(limite_noticias):
+    spiders = obtener_todos_los_spiders()
+    logger.info(f"Detectados {len(spiders)} spiders: {', '.join(spiders)}")
+    
+    # --- FASE 1: Scraping ---
+    logger.info("[FASE 1] Ejecutando todos los scrapers...")
+    spider_dir = os.path.join(ROOT_DIR, "rag_scraper")
+    noticias_totales = []
+    
     with tempfile.TemporaryDirectory() as temp_dir:
-        for fuente in fuentes:
-            salida_temporal = os.path.join(temp_dir, f"{fuente}.json")
-            comando = ["scrapy", "crawl", fuente]
+        for spider in spiders:
+            salida = os.path.join(temp_dir, f"{spider}.json")
+            comando = ["scrapy", "crawl", spider, "-o", salida, "--logfile", "../scrapy.log"]
+            
+            if spider == "generic":
+                comando.extend(["-a", f"urls_file={os.path.join(ROOT_DIR, 'urls_fuentes.json')}"])
+            
+            subprocess.run(comando, cwd=spider_dir, capture_output=True)
+            
+            if os.path.exists(salida):
+                with open(salida, encoding="utf-8") as f:
+                    noticias_totales.extend(json.load(f))
+                logger.info(f"  [OK] Spider '{spider}' terminó.")
 
-            if fuente == "generic" and urls_file_absoluto:
-                comando.extend(["-a", f"urls_file={urls_file_absoluto}"])
+    # Guardar noticias.json en la raíz absoluta
+    ruta_noticias = os.path.join(ROOT_DIR, "noticias.json")
+    with open(ruta_noticias, "w", encoding="utf-8") as f:
+        json.dump(noticias_totales, f, ensure_ascii=False, indent=2)
 
-            comando.extend([
-                "-o", salida_temporal,
-                "--logfile", "../scrapy.log",
-            ])
-
-            resultado = subprocess.run(
-                comando,
-                cwd=spider_dir,
-                capture_output=True,
-                text=True,
-            )
-
-            if resultado.returncode != 0:
-                print(f"  [WARN] Spider '{fuente}' terminó con código {resultado.returncode}")
-                print("  Revisa scrapy.log para detalles")
-                continue
-
-            with open(salida_temporal, encoding="utf-8") as f:
-                noticias.extend(json.load(f))
-
-            print(f"  [OK] Spider '{fuente}' completado")
-
-    with open("noticias.json", "w", encoding="utf-8") as f:
-        json.dump(noticias, f, ensure_ascii=False, indent=2)
-
-    print(f"  [OK] Scraping completado: {len(noticias)} noticias combinadas")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Pipeline ")
-    parser.add_argument("--solo-destilar", action="store_true",
-                        help="Omite el scraping y usa noticias.json existente")
-    parser.add_argument("--limite", type=int, default=None,
-                        help="Máximo de noticias a destilar")
-    parser.add_argument(
-        "--fuente",
-        choices=["hackernews", "techcrunch", "generic", "ambas"],
-        default="hackernews",
-        help="Fuente a scrapear en la fase 1",
-    )
-    parser.add_argument(
-        "--urls-file",
-        default=None,
-        help="Archivo JSON o TXT con URLs para el spider genérico",
-    )
-    parser.add_argument("--entrada", default="noticias.json")
-    args = parser.parse_args()
-
-    print("=" * 60)
-    print("  PIPELINE")
-    print("=" * 60)
-
-    # ── Fase 1: Scraping ──────────────────────────────────────────
-    if not args.solo_destilar:
-        if args.fuente == "ambas":
-            correr_scraper(["hackernews", "techcrunch"])
-        elif args.fuente == "generic":
-            correr_scraper(["generic"], urls_file=args.urls_file)
-        else:
-            correr_scraper([args.fuente])
-    else:
-        print("\n[FASE 1] Omitida — usando noticias.json existente")
-
-    # ── Fase 2: Cargar noticias ───────────────────────────────────
-    print("\n[FASE 2] Cargando noticias...")
-    with open(args.entrada, encoding="utf-8") as f:
-        noticias = json.load(f)
-
-    noticias_utiles = [n for n in noticias if tiene_contenido_util(n)]
-    if args.limite:
-        noticias_utiles = noticias_utiles[:args.limite]
-
-    print(f"  Total noticias:     {len(noticias)}")
-    print(f"  Con contenido útil: {len(noticias_utiles)}")
-
-    # ── Fase 3: Destilación + Validación ─────────────────────────
-    print(f"\n[FASE 3] Destilando con LLM y validando con Pydantic...")
-    print("-" * 60)
-
+    # --- FASE 2 y 3: Destilación ---
+    logger.info(f"[FASE 2/3] Destilando...")
+    noticias_utiles = [n for n in noticias_totales if tiene_contenido_util(n)]
+    if limite_noticias:
+        noticias_utiles = noticias_utiles[:limite_noticias]
+        
     ideas_validas = []
-    fallidas = 0
-
-    for i, noticia in enumerate(noticias_utiles, 1):
-        titulo_corto = noticia["titulo"][:52]
-        print(f"  [{i}/{len(noticias_utiles)}] {titulo_corto}...")
-
+    for noticia in noticias_utiles:
         data = destilar(noticia)
-        if data is None:
-            fallidas += 1
-            continue
-
         contrato = validar(data)
-        if contrato is None:
-            fallidas += 1
-            continue
+        if contrato:
+            idea = contrato.model_dump(mode="json", exclude_none=True)
+            idea["_pipeline"] = {"status": "borrador", "hash_origen": noticia["hash_url"]}
+            ideas_validas.append(idea)
+            logger.info(f"    [OK] Destilada: {contrato.metadata.nombre}")
+            time.sleep(1.5)
 
-        idea = contrato.model_dump(mode="json", exclude_none=True)
-        idea["_pipeline"] = {
-            "status": "borrador",
-            "hash_origen": noticia["hash_url"],
-            "procesado_en": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        }
-        ideas_validas.append(idea)
-        print(f"         → {contrato.metadata.nombre} | "
-              f"{len(contrato.subagentes)} agentes | "
-              f"{contrato.orquestador.tipo_flujo}")
-
-        time.sleep(1.5)
-
-    print("-" * 60)
-    print(f"  Válidas: {len(ideas_validas)} | Fallidas: {fallidas}")
-
-    # Guardar borrador local
-    with open("ideas_borrador.json", "w", encoding="utf-8") as f:
+    # ---  Guardar borrador local ---
+    ruta_borrador = os.path.join(ROOT_DIR, "ideas_borrador.json")
+    with open(ruta_borrador, "w", encoding="utf-8") as f:
         json.dump(ideas_validas, f, ensure_ascii=False, indent=2)
+    logger.info(f"[ARCHIVO] Borrador guardado en: {ruta_borrador}")
 
-    # ── Fase 4: Inserción en Supabase ─────────────────────────────
-    print(f"\n[FASE 4] Insertando en Supabase...")
-    print("-" * 60)
-
-    insertadas = 0
-    duplicadas = 0
-    errores = 0
-
+    # --- FASE 4: Inserción ---
+    logger.info("[FASE 4] Insertando en Supabase...")
     for idea in ideas_validas:
-        nombre = idea["metadata"]["nombre"]
         res = insertar_idea(idea)
-        if res["ok"] and res["accion"] == "insertada":
-            insertadas += 1
-            print(f"  [INSERT] {nombre}")
-        elif res["ok"] and res["accion"] == "duplicada":
-            duplicadas += 1
-            print(f"  [DEDUP]  {nombre} — ya existe")
-        else:
-            errores += 1
-            print(f"  [ERROR]  {nombre} — {res.get('error', '?')}")
+        status = "INSERT" if res.get("accion") == "insertada" else "DEDUP"
+        logger.info(f"    [{status}] {idea['metadata']['nombre']}")
 
-    print("-" * 60)
-    print(f"  Insertadas:  {insertadas}")
-    print(f"  Duplicadas:  {duplicadas}")
-    print(f"  Errores:     {errores}")
-
-    # Totales en Supabase
-    total_db = contar_ideas()
-    borradores = contar_ideas("borrador")
-    print(f"\n[SUPABASE] Total en banco: {total_db} ideas ({borradores} borradores)")
-
-    print("\n" + "=" * 60)
-    print("  PIPELINE COMPLETADO")
-    print("=" * 60)
-
+    logger.info("Pipeline completado.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--limite", type=int, default=10, help="Max noticias a procesar")
+    args = parser.parse_args()
+    
+    ejecutar_pipeline_completo(args.limite)

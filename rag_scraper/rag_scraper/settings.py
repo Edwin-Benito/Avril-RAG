@@ -22,8 +22,12 @@ ITEM_PIPELINES = {
     "rag_scraper.pipelines.DedupPipeline": 100,
 }
 
-# Logs solo nivel WARNING en consola (más limpio)
+# Logs solo nivel WARNING en consola
 LOG_LEVEL = "WARNING"
 
 # Formato de salida
 FEED_EXPORT_ENCODING = "utf-8"
+
+PRODUCTHUNT_TOKEN = "1SfEbPrZwHrSgFWVpNSC9bGri98c-LKBpzvvw2UyDe0"
+
+REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
