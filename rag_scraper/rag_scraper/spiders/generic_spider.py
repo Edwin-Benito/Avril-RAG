@@ -17,7 +17,7 @@ class GenericSpider(scrapy.Spider):
             yield scrapy.Request(url, callback=self.descubrir_enlaces, meta={"base_url": url})
 
     def descubrir_enlaces(self, response):
-        # Corrección: Ignorar respuestas que no sean HTML (evita error de JSON)
+        
         if "text/html" not in response.headers.get(b"Content-Type", b"").decode().lower():
             self.logger.warning(f"Saltando {response.url}: No es HTML.")
             return

@@ -15,15 +15,15 @@ logging.basicConfig(
     level=logging.INFO, 
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),  # stdout → journalctl en systemd
-        logging.FileHandler('avril-rag.log')  # También guardar localmente
+        logging.StreamHandler(),  
+        logging.FileHandler('avril-rag.log')
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Integrar journalctl si está disponible (producción)
 try:
-    from systemd.journal import JournalHandler
+    from systemd.journal import JournalHandler  # type: ignore
+
     journal_handler = JournalHandler()
     journal_handler.setFormatter(logging.Formatter('%(name)s: %(message)s'))
     logger.addHandler(journal_handler)
@@ -62,7 +62,7 @@ def ejecutar_pipeline_completo(limite_noticias):
                     noticias_totales.extend(json.load(f))
                 logger.info(f"  [OK] Spider '{spider}' terminó.")
 
-    # Guardar noticias.json en la raíz absoluta
+    # Guardar noticias.json 
     ruta_noticias = os.path.join(ROOT_DIR, "noticias.json")
     with open(ruta_noticias, "w", encoding="utf-8") as f:
         json.dump(noticias_totales, f, ensure_ascii=False, indent=2)
@@ -90,13 +90,13 @@ def ejecutar_pipeline_completo(limite_noticias):
         json.dump(ideas_validas, f, ensure_ascii=False, indent=2)
     logger.info(f"[ARCHIVO] Borrador guardado en: {ruta_borrador}")
 
-    # --- FASE 4: Inserción ---
+    """ # --- FASE 4: Inserción ---
     logger.info("[FASE 4] Insertando en Supabase...")
     for idea in ideas_validas:
         res = insertar_idea(idea)
         status = "INSERT" if res.get("accion") == "insertada" else "DEDUP"
         logger.info(f"    [{status}] {idea['metadata']['nombre']}")
-
+    """
     logger.info("Pipeline completado.")
 
 if __name__ == "__main__":

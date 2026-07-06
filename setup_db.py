@@ -1,17 +1,23 @@
+"""
+setup_db.py — INF-RAG-001
+Crea la tabla ideas_negocio en Supabase usando conexión directa PostgreSQL.
+Úsalo una sola vez para preparar la base de datos.
+
+Uso:
+    python setup_db.py
+"""
+
 import psycopg2
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-
+# Toma la cadena de conexión completa del .env
+# Formato: postgresql://user:password@host:5432/database
 CONNECTION_STRING = os.getenv("SUPABASE_CONN")
 
 SQL_CREAR_TABLA = """
--- 1. Habilitar la extensión para guardar embeddings
-CREATE EXTENSION IF NOT EXISTS vector;
-
--- 2. Crear la tabla
 CREATE TABLE IF NOT EXISTS ideas_negocio (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre        TEXT NOT NULL,
@@ -23,7 +29,7 @@ CREATE TABLE IF NOT EXISTS ideas_negocio (
     status        TEXT NOT NULL DEFAULT 'borrador'
                   CHECK (status IN ('borrador', 'revisada', 'publicada')),
     quality_score FLOAT,
-    embedding     vector(1536), -- Columna lista para cuando se conecte el modelo
+    documento_identidad TEXT,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
@@ -33,6 +39,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ideas_hash
 
 CREATE INDEX IF NOT EXISTS idx_ideas_status
     ON ideas_negocio (status);
+
+-- Si la tabla ya existía de una corrida anterior de este script (sin la
+-- columna nueva), ALTER TABLE ... ADD COLUMN IF NOT EXISTS la agrega sin
+-- afectar las filas existentes. Es seguro ejecutar esto varias veces.
+ALTER TABLE ideas_negocio
+    ADD COLUMN IF NOT EXISTS documento_identidad TEXT;
 """
 
 def main():
