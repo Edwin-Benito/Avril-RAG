@@ -127,7 +127,15 @@ def insertar_idea(idea: dict) -> dict:
         f"Empresa: {nombre}. Descripción: {descripcion}. "
         f"Problema: {problema}. Solución: {solucion}."
     )
+    
     vector_embedding = generar_embedding(texto_semantico)
+
+    # NUEVO: Logging detallado del estado del embedding
+    if vector_embedding:
+        dims = len(vector_embedding)
+        logger.info(f"[EMBEDDING] ✅ {dims}-dims generadas para '{nombre}'")
+    else:
+        logger.warning(f"[EMBEDDING] ⚠️ NULL para '{nombre}' (Se insertará sin vector)")
 
     query = """
     INSERT INTO ideas_negocio (
@@ -158,9 +166,15 @@ def insertar_idea(idea: dict) -> dict:
         conn.commit()
         cur.close()
 
+        # NUEVO: Logging del resultado de Supabase
         if resultado:
+            logger.info(
+                f"[SUPABASE] INSERT OK - {nombre} (ID: {resultado[0]}) "
+                f"| embedding={'✅' if vector_embedding else '❌'}"
+            )
             return {"ok": True, "accion": "insertada", "id": resultado[0]}
         else:
+            logger.info(f"[SUPABASE] DEDUP - '{nombre}' ya existe en BD")
             return {"ok": True, "accion": "duplicada", "id": None}
 
     except Exception as e:

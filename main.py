@@ -90,35 +90,42 @@ def ejecutar_pipeline_completo(limite_noticias):
         # Destilación rica mediante LLM (Paso 2 del Destilador)
         data = destilar(noticia)
         if data is None:
+            # NUEVO: Logging de error si falla la destilación
+            logger.error(f"    [DESTILACION FALLIDA] '{noticia['titulo'][:40]}...' - Revisar logs de API")
             continue
             
         # Validación estricta del contrato contra Pydantic
         contrato = validar(data)
-        if contrato:
-            # Generación de la Identidad Operativa en Markdown para el Frontend
-            documento_identidad = generar_documento_identidad(contrato)
+        if not contrato:
+            # NUEVO: Logging de error de schema Pydantic
+            logger.error(f"    [VALIDACION FALLIDA] Pydantic rechazó el JSON de: '{noticia['titulo'][:40]}...'")
+            logger.debug(f"    Datos rechazados: {json.dumps(data, indent=2)[:200]}...")
+            continue
             
-            # Volcado a diccionario y preparación de metadatos de control del pipeline
-            idea = contrato.model_dump(mode="json", exclude_none=True)
-            idea["_pipeline"] = {
-                "status": "borrador",
-                "hash_origen": noticia["hash_url"],
-                "procesado_en": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "evaluacion_confianza": evaluacion["confianza"],
-                "documento_identidad": documento_identidad
-            }
-            ideas_validas.append(idea)
-            logger.info(f"    [CONTRATO OK] → {contrato.metadata.nombre} validado.")
-            
-            # Exportar archivo Markdown físico complementario de respaldo
-            if documento_identidad:
-                os.makedirs("documentos_identidad", exist_ok=True)
-                nombre_archivo = contrato.metadata.nombre.replace(" ", "_").replace("/", "-")
-                ruta_md = f"documentos_identidad/{nombre_archivo}_{noticia['hash_url'][:8]}.md"
-                with open(ruta_md, "w", encoding="utf-8") as f:
-                    f.write(documento_identidad)
-            
-            time.sleep(1.5)
+        # Generación de la Identidad Operativa en Markdown para el Frontend
+        documento_identidad = generar_documento_identidad(contrato)
+        
+        # Volcado a diccionario y preparación de metadatos de control del pipeline
+        idea = contrato.model_dump(mode="json", exclude_none=True)
+        idea["_pipeline"] = {
+            "status": "borrador",
+            "hash_origen": noticia["hash_url"],
+            "procesado_en": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "evaluacion_confianza": evaluacion["confianza"],
+            "documento_identidad": documento_identidad
+        }
+        ideas_validas.append(idea)
+        logger.info(f"    [CONTRATO OK] → {contrato.metadata.nombre} validado.")
+        
+        # Exportar archivo Markdown físico complementario de respaldo
+        if documento_identidad:
+            os.makedirs("documentos_identidad", exist_ok=True)
+            nombre_archivo = contrato.metadata.nombre.replace(" ", "_").replace("/", "-")
+            ruta_md = f"documentos_identidad/{nombre_archivo}_{noticia['hash_url'][:8]}.md"
+            with open(ruta_md, "w", encoding="utf-8") as f:
+                f.write(documento_identidad)
+        
+        time.sleep(1.5)
 
     # ─── FASE 4: Persistencia e Inserción Directa ───────────────────────────
     logger.info("[FASE 4] Insertando registros válidos en Supabase...")

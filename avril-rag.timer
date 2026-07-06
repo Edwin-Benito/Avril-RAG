@@ -2,8 +2,8 @@
 Description=Timer para Ejecucion Semanal de Avril RAG
 
 [Timer]
-# Se ejecuta todos los viernes a las 12:00
-OnCalendar=Fri *-*-* 12:00:00
+# Se ejecuta todos los viernes a las 11:00
+OnCalendar=Fri *-*-* 11:00:00
 # Recupera la ejecución si el servidor estuvo apagado a esa hora
 Persistent=true
 

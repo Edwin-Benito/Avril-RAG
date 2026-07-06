@@ -35,59 +35,124 @@ client = OpenAI(
 
 MODEL = "meta/llama-3.1-70b-instruct"
 
-# ── Prompt de EVALUACIÓN (paso 1 — filtro de viabilidad) ───────────────────────
 PROMPT_SISTEMA_EVALUACION = """Eres un analista de venture capital especializado en IA agéntica.
-Tu único trabajo es decidir si una noticia describe una EMPRESA o PRODUCTO
-agéntico real que podría convertirse en un modelo de negocio — NO si el
-tema general es interesante.
+Tu único trabajo es decidir si una noticia describe una EMPRESA O PRODUCTO
+agéntico real e INDEPENDIENTE que podría convertirse en un modelo de negocio.
 
-ACEPTA (es_negocio_viable = true) solo si la noticia describe:
-- Una startup o producto específico, con nombre propio, que ofrece un
-  servicio agéntico (aunque sea en etapa temprana o open-source)
-- Suficiente información para inferir qué problema resuelve y cómo
-- Algo que un usuario o empresa podría contratar, usar o replicar como
-  modelo de negocio
+═══════════════════════════════════════════════════════════════════════════════
+DEFINICIÓN: ¿Qué ES una EMPRESA AGÉNTICA?
+═══════════════════════════════════════════════════════════════════════════════
 
-RECHAZA (es_negocio_viable = false) si la noticia es:
-- Un paper académico o investigación teórica sin producto asociado
-- Un artículo de opinión, advertencia, riesgo o crítica sobre IA agéntica
-- Una noticia sobre regulación, políticas públicas o marcos legales
-- Un análisis de mercado o predicción general (ej. "Gartner predice...")
-- Un incidente o falla de un agente (ej. "un agente borró una base de datos")
-- Una noticia que solo MENCIONA "agentic AI" de pasada sin describir
-  una empresa o producto concreto
-- Contenido sin suficiente información para inferir un modelo de negocio real
-- El lanzamiento o actualización de un MODELO de lenguaje en sí mismo
-  (ej. "Claude Sonnet 5", "GPT-5", "Gemini 3") — un modelo no es una empresa,
-  es infraestructura que otras empresas podrían usar
-- Un producto o feature nueva lanzada por una empresa tecnológica GRANDE
-  y ya establecida (Google, Microsoft, Meta, Amazon, Apple, OpenAI, Anthropic,
-  etc.) — solo nos interesan STARTUPS o productos independientes con un
-  modelo de negocio propio y replicable, no features de gigantes tech con
-  recursos y distribución que no son comparables a una startup nueva
+Una empresa agéntica debe cumplir TODAS estas condiciones:
 
-REGLA CLAVE para distinguir: pregúntate "¿podría alguien tomar esta idea y
-construir una startup nueva a partir de ella?". Si la respuesta es "no,
-porque ya es una feature de una empresa gigante" o "no, porque es solo el
-modelo de IA sin un negocio construido encima", RECHAZA.
+1. **INDEPENDENCIA EMPRESARIAL**: 
+   - Startup o producto con marca/nombre propio y modelo de negocio separado
+   - NO una "feature" dentro de una empresa tech grande (Google, Microsoft, OpenAI, etc.)
+   - Ejemplo : "Google lanza AI Overviews" = feature de Google
+   - Ejemplo : "Perplexity lanza búsqueda con IA agéntica" = empresa independiente
+
+2. **NATURALEZA AGÉNTICA NATIVA**:
+   - El producto opera mediante **agentes autónomos** como componente central
+   - Puede haber human-in-the-loop, pero la lógica principal es agéntica
+   - Ejemplo : "AutoGPT proporciona orquestación de agentes" = agéntico por diseño
+   - Ejemplo : "ChatGPT lanza modo lectura" = LLM sin agentes
+
+3. **MODELO DE NEGOCIO CLARO**:
+   - Usuarios/clientes podrían pagar por usarlo (SaaS, API, Marketplace, etc.)
+   - Clientes: empresas, desarrolladores, profesionales (no el público masivo)
+   - Ejemplo : "CrewAI ofrece orquestación de agentes para equipos"
+   - Ejemplo : "Un investigador publica un paper sobre multi-agent systems"
+
+4. **PRODUCTO REAL O ETAPA TEMPRANA VIABLE**:
+   - MVP, beta, o public release (no solo anuncio teórico)
+   - Tiene documentación, código, o interface público
+   - Ejemplo : "AnythingLLM lanza soporte para swarms agénticos"
+   - Ejemplo : "Investigadores predicen que en 2030 habrá agentes autónomos"
+
+═══════════════════════════════════════════════════════════════════════════════
+RECHAZA (es_negocio_viable = false) SI:
+═══════════════════════════════════════════════════════════════════════════════
+
+ Lanzamiento de MODELO DE IA en sí (Claude, GPT, Gemini, Llama, Grok, etc.)
+ Razón: Un modelo no es una empresa — es infraestructura que otras usan
+ 
+ Feature nueva de empresa tech GRANDE y establecida (Google, Microsoft, Meta, 
+ Amazon, Apple, OpenAI, Anthropic, Nvidia, etc.)
+ Razón: No es una startup; tiene recursos inigualables
+ 
+ Feature de un producto existente (ej. "ChatGPT ahora tiene modo X", 
+ "Slack agrega integración Y")
+ Razón: Es mejora a un producto existente, no nuevo negocio
+ 
+ Paper académico, investigación o publicación sin producto asociado
+ Razón: Es teoría, no empresa
+ 
+ Artículo de opinión, advertencia o crítica sobre IA agéntica
+ Razón: No describe un producto/empresa específico
+ 
+ Regulación, política pública o marco legal
+ Razón: No es un modelo de negocio
+ 
+ Incidente de seguridad o falla de un agente
+ Razón: Es una noticia sobre riesgos, no sobre una empresa
+ 
+ Análisis de mercado, predicción de Gartner, o tendencias generales
+ Razón: Es meta-análisis, no empresa específica
+ 
+ Producto que es esencialmente un wrapper o cliente de un modelo (ej. 
+   "App para usar Claude mejor")
+   Razón: No añade valor empresarial distintivo — es UX sobre infraestructura
+
+═══════════════════════════════════════════════════════════════════════════════
+ACEPTA (es_negocio_viable = true) SI:
+═══════════════════════════════════════════════════════════════════════════════
+
+ Startup que ofrece orquestación de agentes (ej. CrewAI, AutoGen, AnythingLLM)
+
+ Plataforma agéntica para casos de uso específicos:
+   - Legal: startup que automatiza revisión de contratos con agentes
+   - Healthcare: sistema que diagnostica con agentes coordinados
+   - Finanzas: trading bot que ejecuta estrategias con agentes
+   
+ Infraestructura para desarrolladores:
+   - API o SDK para construir agentes (LangChain, LlamaIndex)
+   - Orquestadores de swarms (ej. AgentPool)
+   
+ SaaS agéntico para operaciones internas:
+   - CRM que automatiza ventas con agentes
+   - HR que maneja procesos con agentes autónomos
+   
+ Open-source agentic con modelo de negocio viable:
+   - Enterprise support, consulting, hosted version
+
+CRITERIO CLAVE PARA DECIDIR:
+"¿Podría alguien crear una startup completamente nueva basada en esta idea?"
+- SÍ → Acepta
+- NO (porque es feature/modelo/paper) → Rechaza
+
+═══════════════════════════════════════════════════════════════════════════════
 
 Responde ÚNICAMENTE con un JSON de esta forma exacta, sin texto adicional:
 {
   "es_negocio_viable": true o false,
   "confianza": número entre 0.0 y 1.0,
-  "razon": "explicación breve en una oración de por qué aceptaste o rechazaste"
+  "razon": "explicación breve (máximo 1 oración) de por qué aceptaste o rechazaste"
 }"""
 
-PROMPT_USUARIO_EVALUACION = """Evalúa esta noticia:
+PROMPT_USUARIO_EVALUACION = """Evalúa esta noticia estrictamente contra la 
+definición de EMPRESA AGÉNTICA INDEPENDIENTE:
 
 Título: {titulo}
 Fuente: {fuente}
 Resumen: {resumen}
 
-Recuerda: rechaza si es un lanzamiento de modelo de IA (Claude, GPT, Gemini,
-Llama, etc.) o una feature de una empresa tecnológica grande y establecida
-(Google, Microsoft, Meta, Amazon, Apple, OpenAI, Anthropic, Nvidia). Solo
-acepta startups o productos independientes con modelo de negocio propio.
+RECUERDA LOS RECHAZOS AUTOMÁTICOS:
+- Modelos de IA (Claude, GPT, Gemini, Llama, etc.)
+- Features de empresas grandes (Google, Microsoft, OpenAI, Anthropic, etc.)
+- Papers o investigación sin producto
+- Wrappers o clientes de modelos
+- Incidentes de seguridad
+- Regulación o política
 
 Responde SOLO con el JSON de evaluación, sin texto adicional."""
 
@@ -326,8 +391,8 @@ def normalizar_scores(data: dict) -> dict:
     return data
 
 
-def destilar(noticia: dict) -> dict | None:
-    """Llama al LLM y retorna el JSON parseado, o None si falla."""
+def destilar(noticia: dict, max_reintentos: int = 3) -> dict | None:
+    """Llama al LLM y retorna el JSON parseado, o None si falla. Incluye reintentos automáticos."""
     prompt = PROMPT_USUARIO.format(
         titulo=noticia["titulo"],
         fuente=noticia["fuente"],
@@ -335,35 +400,44 @@ def destilar(noticia: dict) -> dict | None:
         resumen=noticia["resumen"][:800],
     )
 
-    try:
-        respuesta = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": PROMPT_SISTEMA},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-            max_tokens=1500,
-        )
-        texto = respuesta.choices[0].message.content.strip()
+    for intento in range(max_reintentos):
+        try:
+            # NUEVO: timeout explícito de 45 segundos para que no se congele jamás
+            respuesta = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": PROMPT_SISTEMA},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+                max_tokens=1500,
+                timeout=45.0  
+            )
+            texto = respuesta.choices[0].message.content.strip()
 
-        if texto.startswith("```"):
-            texto = texto.split("```")[1]
-            if texto.startswith("json"):
-                texto = texto[4:]
-        texto = texto.strip()
+            if texto.startswith("```"):
+                texto = texto.split("```")[1]
+                if texto.startswith("json"):
+                    texto = texto[4:]
+            texto = texto.strip()
 
-        data = json.loads(texto)
-        data = normalizar_fecha_creacion(data)
-        data = normalizar_scores(data)
-        return data
+            data = json.loads(texto)
+            data = normalizar_fecha_creacion(data)
+            data = normalizar_scores(data)
+            return data
 
-    except json.JSONDecodeError as e:
-        logger.error(f"[ERROR JSON] No se pudo parsear la respuesta: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"[ERROR API] {e}")
-        return None
+        except json.JSONDecodeError as e:
+            logger.warning(f"[ERROR JSON] Intento {intento+1}/{max_reintentos} - Parseo fallido: {e}")
+        except Exception as e:
+            logger.warning(f"[ERROR API NVIDIA] Intento {intento+1}/{max_reintentos} - {e}")
+        
+        # Esperar un poco antes del siguiente reintento si no es el último
+        if intento < max_reintentos - 1:
+            time.sleep(3)
+
+    # Si llega aquí, es porque agotó los 3 intentos
+    logger.error(f"[ABORTADO] Se agotaron los {max_reintentos} reintentos para '{noticia['titulo'][:40]}'")
+    return None
 
 
 def validar(data: dict) -> ContratoEmpresaAgentica | None:
