@@ -1,101 +1,31 @@
 """
 supabase_client.py — INF-RAG-001
 Inserta ideas validadas en Supabase usando conexión directa PostgreSQL (psycopg2).
-Genera el embedding semántico real vía NVIDIA API antes de insertar.
+Genera el embedding semántico real vía la API de embeddings configurada.
 
-NOTA DE ARQUITECTURA — decisión de proveedor de embeddings:
-El requisito original pedía usar el servicio de embeddings NATIVO de Supabase
-(modelo gte-small corriendo en Edge Functions, sin API externa). No fue
-posible implementarlo porque el acceso otorgado a este proyecto es
-únicamente la cadena de conexión a Postgres (sin CLI ni dashboard de
-Supabase para desplegar Edge Functions/Database Webhooks — esa capa vive
-fuera de Postgres y no es accesible por SQL). Como alternativa funcional
-equivalente, el embedding se genera aquí en Python usando la API de NVIDIA
-— mismo proveedor que ya se usa para la destilación, sin infraestructura
-adicional que desplegar.
-
-Modelo elegido: nvidia/nv-embedqa-e5-v5
-  - 1024 dimensiones
-  - Licencia: NVIDIA AI Foundation Models Community License + MIT License
-  - Explícitamente listado como "ready for commercial use" por NVIDIA
-  - (Se descartó nv-embed-v1: aunque es más grande (4096 dims), su licencia
-    es "non-commercial use only", inadecuada para un producto como Avril)
-
-Pendiente: migrar al servicio nativo de Supabase (gte-small) si en el
-futuro se obtiene acceso de despliegue a Edge Functions del proyecto.
+La configuración de embeddings (proveedor, modelo, dimensiones, etc.) se gestiona
+ahora en embeddings_config.py, permitiendo cambios sin modificar este módulo.
 """
 
 import os
 import logging
 import psycopg2
-import requests
 from psycopg2.extras import Json
 from dotenv import load_dotenv
+
+from embeddings_config import embeddings_config
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 CONNECTION_STRING = os.getenv("SUPABASE_CONN")
-NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
-
-NVIDIA_EMBED_URL = "https://integrate.api.nvidia.com/v1/embeddings"
-NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5"
-EMBED_DIMENSIONES = 1024
-# Debe coincidir EXACTAMENTE con la columna `embedding vector(N)` en
-# setup_db.py — si cambias de modelo, actualiza también esa columna.
 
 
 def obtener_conexion():
     if not CONNECTION_STRING:
         raise ValueError("Falta la variable de entorno SUPABASE_CONN en el .env")
     return psycopg2.connect(CONNECTION_STRING)
-
-
-def generar_embedding(texto: str) -> list[float] | None:
-    """
-    Genera un embedding semántico real vía la API de NVIDIA.
-    Retorna None si falla (no bloquea el insert — la idea se guarda sin
-    embedding y puede completarse después con un job de backfill).
-    """
-    if not NVIDIA_API_KEY:
-        logger.warning("[EMBEDDING] Falta NVIDIA_API_KEY, se omite el embedding")
-        return None
-
-    try:
-        respuesta = requests.post(
-            NVIDIA_EMBED_URL,
-            headers={
-                "Authorization": f"Bearer {NVIDIA_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "input": [texto],
-                "model": NVIDIA_EMBED_MODEL,
-                "input_type": "passage",
-                # "passage": estamos indexando contenido para buscarlo después,
-                # no haciendo una consulta de búsqueda en este momento.
-                "encoding_format": "float",
-                "truncate": "END",
-            },
-            timeout=15,
-        )
-        respuesta.raise_for_status()
-        data = respuesta.json()
-        embedding = data["data"][0]["embedding"]
-
-        if len(embedding) != EMBED_DIMENSIONES:
-            logger.warning(
-                f"[EMBEDDING] Dimensión inesperada: {len(embedding)} "
-                f"(se esperaba {EMBED_DIMENSIONES}). Se omite para no romper la columna."
-            )
-            return None
-
-        return embedding
-
-    except Exception as e:
-        logger.warning(f"[EMBEDDING] No se pudo generar: {e}")
-        return None
 
 
 def insertar_idea(idea: dict) -> dict:
@@ -128,7 +58,7 @@ def insertar_idea(idea: dict) -> dict:
         f"Problema: {problema}. Solución: {solucion}."
     )
     
-    vector_embedding = generar_embedding(texto_semantico)
+    vector_embedding = embeddings_config.generar_embedding(texto_semantico)
 
     # NUEVO: Logging detallado del estado del embedding
     if vector_embedding:
@@ -209,13 +139,7 @@ def contar_ideas(status: str | None = None) -> int:
 
 
 def buscar_ideas_similares(texto_busqueda: str, limite: int = 5) -> list[dict]:
-    """
-    Busca las N ideas más semánticamente parecidas a un texto dado, usando
-    distancia de coseno sobre la columna embedding (pgvector). Útil para
-    dedup semántica: antes de insertar una idea nueva, se puede llamar esto
-    para ver si ya existe algo muy similar aunque el hash de URL/contenido
-    sea distinto.
-    """
+
     vector_busqueda = generar_embedding(texto_busqueda)
     if vector_busqueda is None:
         logger.warning("[EMBEDDING] No se pudo generar embedding de búsqueda")

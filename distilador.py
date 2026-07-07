@@ -1,8 +1,8 @@
 """
 distilador.py — INF-RAG-001
 Lee noticias.json, evalúa viabilidad de negocio, destila cada noticia en una
-idea de negocio agéntico usando NVIDIA API (llama-3.1-70b-instruct) y valida
-con Pydantic (INF-RAG-000). Guarda ideas válidas en ideas_borrador.json.
+idea de negocio agéntico usando un LLM compatible con OpenAI y valida con
+Pydantic (INF-RAG-000). Guarda ideas válidas en ideas_borrador.json.
 
 Uso:
     python distilador.py                  # procesa todas las noticias
@@ -15,25 +15,49 @@ import argparse
 import time
 import logging
 import re
-from openai import OpenAI
+import os
 from pydantic import ValidationError
 from dotenv import load_dotenv
-import os
 
 from contrato_models import ContratoEmpresaAgentica
+from llm_config import llm_config
 
 load_dotenv()
 
 # Configuración del logger para este módulo
 logger = logging.getLogger(__name__)
 
-# ── Cliente NVIDIA ─────────────────────────────────────────────────────────────
-client = OpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.getenv("NVIDIA_API_KEY"),
-)
+TIEMPO_MAX_EVALUACION = 30.0
+TIEMPO_MAX_DESTILACION = 45.0
+TIEMPO_MAX_IDENTIDAD = 45.0
 
-MODEL = "meta/llama-3.1-70b-instruct"
+
+def extraer_json_texto(texto: str) -> dict | None:
+    """Extrae el primer objeto JSON válido desde texto con fences o ruido."""
+    if not isinstance(texto, str):
+        return None
+
+    texto = texto.strip()
+
+    if texto.startswith("```"):
+        partes = texto.split("```", 2)
+        if len(partes) >= 2:
+            bloque = partes[1].strip()
+            if bloque.startswith("json"):
+                bloque = bloque[4:].strip()
+            texto = bloque
+
+    inicio = texto.find("{")
+    if inicio == -1:
+        return None
+
+    try:
+        objeto, _ = json.JSONDecoder().raw_decode(texto[inicio:])
+        if isinstance(objeto, dict):
+            return objeto
+        return None
+    except json.JSONDecodeError:
+        return None
 
 PROMPT_SISTEMA_EVALUACION = """Eres un analista de venture capital especializado en IA agéntica.
 Tu único trabajo es decidir si una noticia describe una EMPRESA O PRODUCTO
@@ -270,24 +294,20 @@ def evaluar_relevancia(noticia: dict, umbral_confianza: float = 0.6) -> dict:
     )
 
     try:
-        respuesta = client.chat.completions.create(
-            model=MODEL,
+        respuesta = llm_config.client.chat.completions.create(
+            model=llm_config.model,
             messages=[
                 {"role": "system", "content": PROMPT_SISTEMA_EVALUACION},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
             max_tokens=200,
+            timeout=TIEMPO_MAX_EVALUACION,
         )
-        texto = respuesta.choices[0].message.content.strip()
-
-        if texto.startswith("```"):
-            texto = texto.split("```")[1]
-            if texto.startswith("json"):
-                texto = texto[4:]
-        texto = texto.strip()
-
-        resultado = json.loads(texto)
+        contenido = respuesta.choices[0].message.content
+        resultado = extraer_json_texto(contenido)
+        if resultado is None:
+            raise json.JSONDecodeError("Respuesta no parseable", contenido or "", 0)
 
         es_viable = bool(resultado.get("es_negocio_viable", False))
         confianza = float(resultado.get("confianza", 0.0))
@@ -403,25 +423,21 @@ def destilar(noticia: dict, max_reintentos: int = 3) -> dict | None:
     for intento in range(max_reintentos):
         try:
             # NUEVO: timeout explícito de 45 segundos para que no se congele jamás
-            respuesta = client.chat.completions.create(
-                model=MODEL,
+            respuesta = llm_config.client.chat.completions.create(
+                model=llm_config.model,
                 messages=[
                     {"role": "system", "content": PROMPT_SISTEMA},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,
                 max_tokens=1500,
-                timeout=45.0  
+                timeout=TIEMPO_MAX_DESTILACION,
             )
-            texto = respuesta.choices[0].message.content.strip()
+            contenido = respuesta.choices[0].message.content
+            data = extraer_json_texto(contenido)
+            if data is None:
+                raise json.JSONDecodeError("Respuesta no parseable", contenido or "", 0)
 
-            if texto.startswith("```"):
-                texto = texto.split("```")[1]
-                if texto.startswith("json"):
-                    texto = texto[4:]
-            texto = texto.strip()
-
-            data = json.loads(texto)
             data = normalizar_fecha_creacion(data)
             data = normalizar_scores(data)
             return data
@@ -429,7 +445,7 @@ def destilar(noticia: dict, max_reintentos: int = 3) -> dict | None:
         except json.JSONDecodeError as e:
             logger.warning(f"[ERROR JSON] Intento {intento+1}/{max_reintentos} - Parseo fallido: {e}")
         except Exception as e:
-            logger.warning(f"[ERROR API NVIDIA] Intento {intento+1}/{max_reintentos} - {e}")
+            logger.warning(f"[ERROR API LLM] Intento {intento+1}/{max_reintentos} - {e}")
         
         # Esperar un poco antes del siguiente reintento si no es el último
         if intento < max_reintentos - 1:
@@ -500,16 +516,17 @@ def generar_documento_identidad(contrato: ContratoEmpresaAgentica) -> str | None
     prompt = PROMPT_USUARIO_IDENTIDAD.format(contrato_json=contrato_json)
 
     try:
-        respuesta = client.chat.completions.create(
-            model=MODEL,
+        respuesta = llm_config.client.chat.completions.create(
+            model=llm_config.model,
             messages=[
                 {"role": "system", "content": PROMPT_SISTEMA_IDENTIDAD},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.4,
             max_tokens=800,
+            timeout=TIEMPO_MAX_IDENTIDAD,
         )
-        texto = respuesta.choices[0].message.content.strip()
+        texto = (respuesta.choices[0].message.content or "").strip()
 
         if texto.startswith("```"):
             texto = texto.split("```")[1]

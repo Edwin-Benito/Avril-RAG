@@ -1,71 +1,6 @@
 {
   "fuentes": [
     {
-      "nombre": "Hacker News - Algolia Search",
-      "tipo": "api",
-      "url": "https://hn.algolia.com/api/v1/search?query=agentic+AI&tags=story&hitsPerPage=30"
-    },
-    {
-      "nombre": "GitHub Trending",
-      "tipo": "web",
-      "url": "https://github.com/trending"
-    },
-    {
-      "nombre": "Y Combinator Companies",
-      "tipo": "web",
-      "url": "https://www.ycombinator.com/companies"
-    },
-    {
-      "nombre": "Hugging Face Spaces",
-      "tipo": "web",
-      "url": "https://huggingface.co/spaces"
-    },
-    {
-      "nombre": "Hugging Face Models",
-      "tipo": "web",
-      "url": "https://huggingface.co/models"
-    },
-    {
-      "nombre": "TechCrunch AI RSS",
-      "tipo": "rss",
-      "url": "https://techcrunch.com/category/artificial-intelligence/feed/"
-    },
-    {
-      "nombre": "Product Hunt",
-      "tipo": "web",
-      "url": "https://www.producthunt.com/"
-    },
-    {
-      "nombre": "a16z Blog",
-      "tipo": "web",
-      "url": "https://a16z.com/"
-    },
-    {
-      "nombre": "Sequoia Blog",
-      "tipo": "web",
-      "url": "https://www.sequoiacap.com/"
-    },
-    {
-      "nombre": "Bessemer Venture Partners",
-      "tipo": "web",
-      "url": "https://www.bvp.com/"
-    },
-    {
-      "nombre": "NFX",
-      "tipo": "web",
-      "url": "https://www.nfx.com/"
-    },
-    {
-      "nombre": "Conviction",
-      "tipo": "web",
-      "url": "https://www.conviction.com/"
-    },
-    {
-      "nombre": "Lightspeed Venture Partners",
-      "tipo": "web",
-      "url": "https://lsvp.com/"
-    },
-    {
       "nombre": "CrewAI Blog",
       "tipo": "web",
       "url": "https://www.crewai.com/"
@@ -76,44 +11,9 @@
       "url": "https://blog.langchain.com/"
     },
     {
-      "nombre": "AutoGen",
-      "tipo": "web",
-      "url": "https://microsoft.github.io/autogen/"
-    },
-    {
-      "nombre": "Cognosys",
-      "tipo": "web",
-      "url": "https://www.cognosys.ai/"
-    },
-    {
-      "nombre": "OpenAI Blog",
-      "tipo": "web",
-      "url": "https://openai.com/news/"
-    },
-    {
-      "nombre": "Anthropic News",
-      "tipo": "web",
-      "url": "https://www.anthropic.com/news"
-    },
-    {
-      "nombre": "Google AI Blog",
-      "tipo": "web",
-      "url": "https://blog.google/technology/ai/"
-    },
-    {
-      "nombre": "Google Research AI",
-      "tipo": "web",
-      "url": "https://research.google/teams/brain/"
-    },
-    {
       "nombre": "LlamaIndex Blog",
       "tipo": "web",
       "url": "https://www.llamaindex.ai/blog"
-    },
-    {
-      "nombre": "Replit Blog",
-      "tipo": "web",
-      "url": "https://blog.replit.com/"
     },
     {
       "nombre": "Cursor Blog",
@@ -121,7 +21,7 @@
       "url": "https://cursor.com/blog"
     },
     {
-      "nombre": "Devin / OpenHands",
+      "nombre": "OpenHands",
       "tipo": "web",
       "url": "https://www.openhands.dev/"
     },
@@ -131,9 +31,14 @@
       "url": "https://www.cognition.ai/"
     },
     {
-      "nombre": "Hacker News Home",
+      "nombre": "a16z Blog",
       "tipo": "web",
-      "url": "https://news.ycombinator.com/"
+      "url": "https://a16z.com/"
+    },
+    {
+      "nombre": "NFX",
+      "tipo": "web",
+      "url": "https://www.nfx.com/"
     }
   ]
 }
