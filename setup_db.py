@@ -1,15 +1,3 @@
-"""
-setup_db.py — INF-RAG-001
-Prepara la tabla ideas_negocio con soporte para pgvector.
-
-IMPORTANTE: la dimensión de la columna `embedding` DEBE coincidir
-exactamente con el modelo de embeddings usado en supabase_client.py.
-Modelo actual: nvidia/nv-embedqa-e5-v5 → 1024 dimensiones.
-Si cambias de modelo de embeddings, esta columna debe recrearse (no se
-puede alterar la dimensión de una columna vector con datos existentes sin
-borrar y regenerar los embeddings).
-"""
-
 import psycopg2
 import os
 from dotenv import load_dotenv

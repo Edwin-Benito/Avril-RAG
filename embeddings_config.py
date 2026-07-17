@@ -1,15 +1,3 @@
-"""
-embeddings_config.py — Configuración modular de embeddings
-
-Centraliza la generación de embeddings semánticos. Soporta múltiples
-proveedores (NVIDIA, OpenAI, etc.) sin afectar el resto del código.
-
-Modelos soportados:
-  - NVIDIA: nvidia/nv-embedqa-e5-v5 (1024 dims, uso comercial permitido)
-  - OpenAI: text-embedding-3-small, text-embedding-3-large (por defecto)
-  - Custom: Cualquier modelo compatible
-"""
-
 import os
 import logging
 import requests
@@ -37,6 +25,8 @@ class EmbeddingsConfig:
             "default_dimensions": 1536,
             "api_key_env": "OPENAI_API_KEY",
         },
+        
+        
     }
     
     def __init__(self):

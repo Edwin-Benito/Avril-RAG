@@ -6,10 +6,7 @@ from rag_scraper.items import NoticiaItem
 KEYWORDS = ["agentic", "agent", "ai agent", "autonomous", "llm"]
 
 class ProductHuntSpider(scrapy.Spider):
-    """
-    Consume la API GraphQL de Product Hunt para obtener los lanzamientos del día.
-    No requiere renderizado de JavaScript pesado.
-    """
+    
     name = "producthunt"
     
     # Endpoint público/oficial de la API v2 de Product Hunt

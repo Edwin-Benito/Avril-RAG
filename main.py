@@ -218,7 +218,7 @@ def ejecutar_pipeline_completo(limite_noticias):
             continue
             
         # Generación de la Identidad Operativa en Markdown para el Frontend
-        documento_identidad = generar_documento_identidad(contrato)
+        documento_identidad = generar_documento_identidad(contrato, noticia["url"])        
         
         # Volcado a diccionario y preparación de metadatos de control del pipeline
         idea = contrato.model_dump(mode="json", exclude_none=True)
@@ -240,7 +240,7 @@ def ejecutar_pipeline_completo(limite_noticias):
             with open(ruta_md, "w", encoding="utf-8") as f:
                 f.write(documento_identidad)
         
-        time.sleep(1.5)
+        time.sleep(3)
 
     # ─── FASE 4: Persistencia e Inserción Directa ───────────────────────────
     logger.info("[FASE 4] Insertando registros válidos en Supabase...")

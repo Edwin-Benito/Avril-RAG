@@ -1,9 +1,4 @@
 """
-distilador.py — INF-RAG-001
-Lee noticias.json, evalúa viabilidad de negocio, destila cada noticia en una
-idea de negocio agéntico usando un LLM compatible con OpenAI y valida con
-Pydantic (INF-RAG-000). Guarda ideas válidas en ideas_borrador.json.
-
 Uso:
     python distilador.py                  # procesa todas las noticias
     python distilador.py --limite 5       # solo las primeras 5 (para pruebas)
@@ -24,7 +19,6 @@ from llm_config import llm_config
 
 load_dotenv()
 
-# Configuración del logger para este módulo
 logger = logging.getLogger(__name__)
 
 TIEMPO_MAX_EVALUACION = 30.0
@@ -33,7 +27,7 @@ TIEMPO_MAX_IDENTIDAD = 45.0
 
 
 def extraer_json_texto(texto: str) -> dict | None:
-    """Extrae el primer objeto JSON válido desde texto con fences o ruido."""
+    
     if not isinstance(texto, str):
         return None
 
@@ -280,6 +274,7 @@ Responde SOLO con el JSON, sin ningún texto adicional."""
 
 def tiene_contenido_util(noticia: dict) -> bool:
     """Filtra noticias cuyo resumen es idéntico al título (sin contexto real)."""
+
     titulo = noticia.get("titulo", "").strip()
     resumen = noticia.get("resumen", "").strip()
     return resumen != titulo and len(resumen) > len(titulo) + 20
@@ -287,6 +282,7 @@ def tiene_contenido_util(noticia: dict) -> bool:
 
 def evaluar_relevancia(noticia: dict, umbral_confianza: float = 0.6) -> dict:
     """PASO 1 del pipeline de destilación."""
+
     prompt = PROMPT_USUARIO_EVALUACION.format(
         titulo=noticia["titulo"],
         fuente=noticia["fuente"],
@@ -330,11 +326,7 @@ def evaluar_relevancia(noticia: dict, umbral_confianza: float = 0.6) -> dict:
 
 
 def normalizar_fecha_creacion(data: dict) -> dict:
-    """
-    Extrae y normaliza la parte de fecha reconstruyendo un ISO 8601 completo.
-    Si el formato es inválido, demasiado corto o corrupto, elimina el campo 
-    para evitar fallos estrictos en Pydantic.
-    """
+  
     metadata = data.get("metadata")
     if not isinstance(metadata, dict):
         return data
@@ -345,8 +337,6 @@ def normalizar_fecha_creacion(data: dict) -> dict:
 
     fecha = fecha.strip()
 
-    # Si es muy corto (ej: "2026" o texto ruidoso) y no tiene un patrón claro,
-    # intentamos rescatar el año si son 4 dígitos exactos, si no, se borra.
     if len(fecha) < 8:
         m = re.match(r"^\b(19|20)\d{2}\b$", fecha)
         if m:
@@ -357,42 +347,34 @@ def normalizar_fecha_creacion(data: dict) -> dict:
             del metadata["fecha_creacion"]
             return data
 
-    # Ya viene completa y bien formada — asegurar sufijo Z si falta hora offset
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?", fecha):
         if not re.search(r"(Z|[+-]\d{2}:\d{2})$", fecha):
             fecha = fecha + "Z"
         metadata["fecha_creacion"] = fecha
         return data
 
-    # Buscar patrón YYYY-MM-DD
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", fecha)
     if m:
         metadata["fecha_creacion"] = f"{m.group(0)}T00:00:00Z"
         return data
 
-    # Buscar patrón YYYY-MM
     m = re.search(r"(\d{4})-(\d{2})(?!\d)", fecha)
     if m:
         metadata["fecha_creacion"] = f"{m.group(0)}-01T00:00:00Z"
         return data
 
-    # Buscar solo un año de 4 dígitos
     m = re.search(r"\b(19|20)\d{2}\b", fecha)
     if m:
         metadata["fecha_creacion"] = f"{m.group(0)}-01-01T00:00:00Z"
         return data
 
-    # Si no cayó en ninguna regla, limpiar para salvar el pipeline
     logger.warning(f"[FECHA] Formato irreconocible '{fecha}', se omite el campo.")
     del metadata["fecha_creacion"]
     return data
 
 
 def normalizar_scores(data: dict) -> dict:
-    """
-    Asegura que los nuevos scores numéricos de evaluación tengan el formato 
-    float correcto o se remuevan si vienen corruptos para evitar fallos en Pydantic.
-    """
+   
     metadata = data.get("metadata")
     if not isinstance(metadata, dict):
         return data
@@ -422,7 +404,6 @@ def destilar(noticia: dict, max_reintentos: int = 3) -> dict | None:
 
     for intento in range(max_reintentos):
         try:
-            # NUEVO: timeout explícito de 45 segundos para que no se congele jamás
             respuesta = llm_config.client.chat.completions.create(
                 model=llm_config.model,
                 messages=[
@@ -447,11 +428,9 @@ def destilar(noticia: dict, max_reintentos: int = 3) -> dict | None:
         except Exception as e:
             logger.warning(f"[ERROR API LLM] Intento {intento+1}/{max_reintentos} - {e}")
         
-        # Esperar un poco antes del siguiente reintento si no es el último
         if intento < max_reintentos - 1:
             time.sleep(3)
 
-    # Si llega aquí, es porque agotó los 3 intentos
     logger.error(f"[ABORTADO] Se agotaron los {max_reintentos} reintentos para '{noticia['titulo'][:40]}'")
     return None
 
@@ -468,59 +447,61 @@ def validar(data: dict) -> ContratoEmpresaAgentica | None:
 
 
 # ── Prompt de IDENTIDAD OPERATIVA (paso 4 — documento narrativo externo) ──
-PROMPT_SISTEMA_IDENTIDAD = """Eres un architecto de organizaciones agénticas.
-Recibes un contrato JSON ya validado de una empresa agéntica y debes redactar
-su documento de identidad operativa en formato Markdown legible por humanos.
+PROMPT_SISTEMA_IDENTIDAD = """
+Eres un consultor de startups y experto en copywriting comercial.
+Tu tarea es generar un documento de presentación (Pitch) en formato Markdown inspirador, comercial y profesional. 
 
-REGLAS DE ESTRUCTURA:
-- Agrupa los subagentes recibidos en como máximo 3 "squads", cada uno con un tema claro.
-- Cada squad tiene como máximo 3 workers (usa los subagentes reales del contrato).
-- El total de agentes en todos los squads no debe exceder 12.
-- Incluye una sección de "Runtime Topology" y una "Operating Cadence" semanal razonable.
-- Usa el nombre y la descripción reales del contrato.
+ESTRUCTURA ESTRICTA A SEGUIR:
 
-FORMATO DE SALIDA (Markdown, sin bloques de código, sin texto fuera del documento):
+# [INVENTA UN NOMBRE COMERCIAL CORTO Y ATRACTIVO PARA LA STARTUP] Mission
 
-# [Nombre de la empresa]
+## Mission
+(Un párrafo corto e inspirador sobre el propósito fundamental de la empresa).
 
-## Identidad
-[2-3 líneas basadas en la descripción real del contrato]
+## What we're building
+(Explica la plataforma o solución de forma clara, mencionando qué agentes interactúan y qué valor aportan).
 
-## Operating Cadence
-- **[Día]:** [actividad]
-- **[Día]:** [actividad]
+## Where we're headed
+(Una visión a futuro. ¿Cómo cambiará la industria cuando esta IA esté operando a gran escala?).
 
-## Runtime Topology
-Instancia exactamente **N orquestaciones de swarm** (N squads orquestadores),
-cada uno con máximo 3 workers/subagentes; total de agentes ≤ 12.
+---
+# Market Research
 
-### Orchestrator Squads and Workers
-1. **[Nombre del squad 1]**
-   - Worker 1: [nombre real del subagente]
-2. **[Nombre del squad 2]**
-   - Worker 1: [nombre real del subagente]
+## Summary
+(Un análisis profundo del mercado, el problema actual y por qué esta solución agentica es necesaria ahora mismo).
 
-[Cierra con 1-2 líneas explicando por qué esta estructura sirve para escalar.]"""
+## Market signals
+(Crea 3 a 5 bullet points con tendencias clave del mercado, estadísticas estimadas o razones lógicas que validen la urgencia de esta idea).
 
-PROMPT_USUARIO_IDENTIDAD = """Contrato JSON validado de la empresa:
+## Sources
+* {url_origen}
+"""
 
+PROMPT_USUARIO_IDENTIDAD = """Acabamos de destilar la siguiente idea de negocio basada en agentes de IA: {descripcion}
+
+Contrato JSON validado de la empresa:
 {contrato_json}
 
-Genera el documento de identidad operativa en Markdown siguiendo exactamente
-el formato especificado."""
+Genera el documento de identidad operativa (Pitch) en Markdown siguiendo exactamente el formato especificado."""
 
 
-def generar_documento_identidad(contrato: ContratoEmpresaAgentica) -> str | None:
+def generar_documento_identidad(contrato: ContratoEmpresaAgentica, url_origen: str) -> str | None:
     """PASO 4 del pipeline: Genera un documento narrativo complementario en Markdown."""
     contrato_json = contrato.model_dump_json(exclude_none=True, indent=2)
-    prompt = PROMPT_USUARIO_IDENTIDAD.format(contrato_json=contrato_json)
+    
+    # Formateamos los prompts inyectando las variables dinámicas de esta noticia
+    prompt_sys = PROMPT_SISTEMA_IDENTIDAD.format(url_origen=url_origen)
+    prompt_usr = PROMPT_USUARIO_IDENTIDAD.format(
+        descripcion=contrato.metadata.descripcion,
+        contrato_json=contrato_json
+    )
 
     try:
         respuesta = llm_config.client.chat.completions.create(
             model=llm_config.model,
             messages=[
-                {"role": "system", "content": PROMPT_SISTEMA_IDENTIDAD},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": prompt_sys},
+                {"role": "user", "content": prompt_usr},
             ],
             temperature=0.4,
             max_tokens=800,
@@ -585,16 +566,20 @@ def main():
         if not evaluacion["es_negocio_viable"]:
             ideas_descartadas += 1
             logger.info(f"    [DESCARTADA] {evaluacion['razon']}")
-            time.sleep(1.0)
+            time.sleep(3)
             continue
 
         logger.info(f"    [VIABLE] confianza={evaluacion['confianza']:.2f} — {evaluacion['razon']}")
+
+        time.sleep(2)
 
         # PASO 2 — Destilar con el LLM
         data = destilar(noticia)
         if data is None:
             ideas_fallidas += 1
             continue
+
+        time.sleep(2)
 
         # PASO 3 — Validar con Pydantic
         contrato = validar(data)
@@ -603,9 +588,12 @@ def main():
             continue
 
         # PASO 4 — Generar documento de identidad operativa (no bloqueante)
-        documento_identidad = generar_documento_identidad(contrato)
+        documento_identidad = generar_documento_identidad(contrato, noticia["url"])
+        
         if documento_identidad:
             logger.info(f"    [IDENTIDAD] Documento generado ({len(documento_identidad)} chars)")
+
+        time.sleep(2)
 
         # Agregar metadata del pipeline
         idea = contrato.model_dump(mode="json", exclude_none=True)
@@ -629,7 +617,7 @@ def main():
             with open(ruta_md, "w", encoding="utf-8") as f:
                 f.write(documento_identidad)
 
-        time.sleep(1.5)
+        time.sleep(3)
 
     # Guardar resultados
     with open(args.salida, "w", encoding="utf-8") as f:

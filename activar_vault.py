@@ -1,9 +1,3 @@
-"""
-activar_vault.py — INF-RAG-001
-Registra de forma segura la API Key en la bóveda de secretos (vault) de Supabase
-para que el Trigger de PostgreSQL pueda generar los embeddings de manera autónoma.
-"""
-
 import psycopg2
 import os
 from dotenv import load_dotenv

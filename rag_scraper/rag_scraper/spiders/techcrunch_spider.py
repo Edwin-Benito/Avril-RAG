@@ -9,10 +9,6 @@ TC_RSS = "https://techcrunch.com/category/artificial-intelligence/feed/"
 
 
 class TechCrunchSpider(scrapy.Spider):
-    """
-    Lee el RSS de TechCrunch AI y filtra artículos sobre agentes.
-    Usa feedparser-style parsing sobre el XML del RSS.
-    """
 
     name = "techcrunch"
 

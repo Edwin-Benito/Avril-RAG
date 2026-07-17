@@ -11,11 +11,7 @@ KEYWORDS = ["agentic", "ai agent", "autonomous agent", "multi-agent", "llm agent
 
 
 class HackerNewsSpider(scrapy.Spider):
-    """
-    Consulta la API oficial de Algolia (Hacker News Search) — sin scraping directo.
-    Devuelve stories que mencionan agentes de IA, filtrando por keywords.
-    """
-
+  
     name = "hackernews"
     custom_settings = {
         "ROBOTSTXT_OBEY": False,  # Es API oficial, no scraping HTML
