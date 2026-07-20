@@ -2,11 +2,15 @@ import psycopg2
 import os
 from dotenv import load_dotenv
 
+# Importamos la configuración centralizada para obtener la dimensión dinámicamente
+from src.embeddings.nvidia_embedder import embeddings_config
+
 load_dotenv()
 
 CONNECTION_STRING = os.getenv("SUPABASE_CONN")
 
-EMBED_DIMENSIONES = 1024  # nvidia/nv-embedqa-e5-v5
+# Tomamos la dimensión directo de la instancia
+EMBED_DIMENSIONES = embeddings_config.dimensions
 
 SQL_LIMPIAR_Y_CREAR = f"""
 -- 1. Asegurar la extensión de vectores nativa de Supabase
@@ -33,20 +37,14 @@ CREATE TABLE IF NOT EXISTS ideas_negocio (
     updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Eliminar el índice semántico ANTES de tocar la columna de la que
---    depende (si no, Postgres rechaza el DROP COLUMN por dependencia).
+-- 3. Eliminar el índice semántico ANTES de tocar la columna
 DROP INDEX IF EXISTS idx_ideas_embedding_hnsw;
 
--- 4. Recrear la columna embedding con la dimensión correcta. Los valores
---    existentes (si los hay) vienen del vector "simulado" (hash SHA-256)
---    de un intento anterior — no son embeddings semánticos reales, así
---    que no hay pérdida de información válida al recrearla desde cero.
+-- 4. Recrear la columna embedding con la dimensión correcta.
 ALTER TABLE ideas_negocio DROP COLUMN IF EXISTS embedding;
 ALTER TABLE ideas_negocio ADD COLUMN embedding vector({EMBED_DIMENSIONES});
 
--- 5. Eliminar triggers viejos de intentos anteriores (enfoque de Trigger +
---    Vault que se descartó por complejidad — el embedding ahora se genera
---    en Python antes del insert, ver supabase_client.py)
+-- 5. Eliminar triggers viejos
 DROP TRIGGER IF EXISTS trg_calcular_embedding_nativo ON ideas_negocio;
 DROP TRIGGER IF EXISTS trg_generar_embedding ON ideas_negocio;
 DROP TRIGGER IF EXISTS trg_calcular_embedding ON ideas_negocio;
@@ -69,7 +67,7 @@ def main():
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute(SQL_LIMPIAR_Y_CREAR)
-        print(f"[OK] Estructura lista con embedding vector({EMBED_DIMENSIONES}) — nv-embedqa-e5-v5.")
+        print(f"[OK] Estructura lista con embedding vector({EMBED_DIMENSIONES}) — {embeddings_config.model}.")
         cur.close()
         conn.close()
     except Exception as e:

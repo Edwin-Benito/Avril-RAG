@@ -8,9 +8,9 @@ import logging
 import glob
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Importaciones del ecosistema enriquecido v1.1.0 de Avril-RAG
-from distilador import destilar, validar, tiene_contenido_util, evaluar_relevancia, generar_documento_identidad
-from supabase_client import insertar_idea, contar_ideas
+# Importaciones del ecosistema
+from src.llm.distilador import destilar, validar, tiene_contenido_util, evaluar_relevancia, generar_documento_identidad
+from src.vectordb.client import insertar_idea, contar_ideas
 
 # Configuración de logs unificada
 logging.basicConfig(
@@ -35,10 +35,11 @@ except ImportError:
 # Ruta absoluta a la raíz del proyecto
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_SPIDER_TIMEOUT = 120
+GENERIC_SPIDER_TIMEOUT = 300
 
 
 def obtener_todos_los_spiders():
-    spider_dir = os.path.join(ROOT_DIR, "rag_scraper", "rag_scraper", "spiders")
+    spider_dir = os.path.join(ROOT_DIR, "src", "ingestion", "scrapers", "rag_scraper", "spiders")
     archivos = glob.glob(os.path.join(spider_dir, "*_spider.py"))
     return [os.path.basename(f).replace("_spider.py", "") for f in archivos]
 
@@ -48,13 +49,13 @@ def ejecutar_spider_individual(spider: str, temp_dir: str) -> tuple[str, str, bo
     Ejecuta un spider individual en un proceso separado.
     Retorna una tupla (spider_name, ruta_salida, exito).
     """
-    spider_dir = os.path.join(ROOT_DIR, "rag_scraper")
+    spider_dir = os.path.join(ROOT_DIR, "src", "ingestion", "scrapers", "rag_scraper")
     salida = os.path.join(temp_dir, f"{spider}.json")
     comando = ["scrapy", "crawl", spider, "-o", salida, "--logfile", "../scrapy.log"]
     timeout_segundos = GENERIC_SPIDER_TIMEOUT if spider == "generic" else DEFAULT_SPIDER_TIMEOUT
     
     if spider == "generic":
-        comando.extend(["-a", f"urls_file={os.path.join(ROOT_DIR, 'urls_fuentes.json')}"])
+        comando.extend(["-a", f"urls_file={os.path.join(ROOT_DIR, 'data', 'urls_fuentes.json')}"])
     
     try:
         resultado = subprocess.run(
@@ -79,7 +80,7 @@ def ejecutar_spider_generic_secuencial(temp_dir: str) -> tuple[str, str, bool]:
     Se usa fuera del pool paralelo porque es el spider más pesado del pipeline.
     """
     spider = "generic"
-    spider_dir = os.path.join(ROOT_DIR, "rag_scraper")
+    spider_dir = os.path.join(ROOT_DIR, "src", "ingestion", "scrapers", "rag_scraper")
     salida = os.path.join(temp_dir, f"{spider}.json")
     comando = [
         "scrapy",
@@ -90,7 +91,7 @@ def ejecutar_spider_generic_secuencial(temp_dir: str) -> tuple[str, str, bool]:
         "--logfile",
         "../scrapy.log",
         "-a",
-        f"urls_file={os.path.join(ROOT_DIR, 'urls_fuentes.json')}",
+        f"urls_file={os.path.join(ROOT_DIR, 'data', 'urls_fuentes.json')}",
     ]
 
     try:
@@ -112,7 +113,7 @@ def ejecutar_pipeline_completo(limite_noticias):
     
     # ─── FASE 1: Scraping en PARALELO ────────────────────────────────────────
     logger.info("[FASE 1] Ejecutando scrapers en PARALELO (excepto generic)...")
-    spider_dir = os.path.join(ROOT_DIR, "rag_scraper")
+    spider_dir = os.path.join(ROOT_DIR, "src", "ingestion", "scrapers", "rag_scraper")
     noticias_totales = []
     
     tiempo_inicio = time.time()
@@ -180,7 +181,7 @@ def ejecutar_pipeline_completo(limite_noticias):
         )
 
         # Guardar noticias.json histórico/local
-        ruta_noticias = os.path.join(ROOT_DIR, "noticias.json")
+        ruta_noticias = os.path.join(ROOT_DIR, "data", "noticias.json")
         with open(ruta_noticias, "w", encoding="utf-8") as f:
             json.dump(noticias_totales, f, ensure_ascii=False, indent=2)
         logger.info(f"  Noticias totales guardadas: {len(noticias_totales)}")
@@ -253,7 +254,7 @@ def ejecutar_pipeline_completo(limite_noticias):
             logger.error(f"    [ERROR DB] Falló inserción de {idea['metadata']['nombre']}: {res.get('error')}")
 
     # Guardar borrador local histórico
-    ruta_borrador = os.path.join(ROOT_DIR, "ideas_borrador.json")
+    ruta_borrador = os.path.join(ROOT_DIR, "data", "ideas_borrador.json")
     with open(ruta_borrador, "w", encoding="utf-8") as f:
         json.dump(ideas_validas, f, ensure_ascii=False, indent=2)
     logger.info(f"[ARCHIVO COPIA] Respaldo borrador guardado en: {ruta_borrador}")
